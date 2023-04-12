@@ -74,23 +74,14 @@ ASSIGN
   esac;
 
 -- add fairness constraints here
-
 -- add specifications here 
 
 -- safety:
 -- Philosophers cannot eat without having chopsticks, we assume table manners
--- Adjacent philosophers cannot eat concurrently.
-SPEC AG (p0.eating -> (p1.state = thinking | p1.state = hungry | p1.state = done))
-SPEC AG (p1.eating -> (p2.state = thinking | p2.state = hungry | p2.state = done))
-SPEC AG (p2.eating -> (p3.state = thinking | p3.state = hungry | p3.state = done))
-SPEC AG (p3.eating -> (p4.state = thinking | p4.state = hungry | p4.state = done))
-SPEC AG (p4.eating -> (p0.state = thinking | p0.state = hungry | p0.state = done))
+SPEC AG ((state = eating) -> (gotleft & gotright))
+
 
 
 -- liveness:
 -- A hungry philosopher will inevitably eat.
-SPEC AG(hungry -> AF eating)
--- A philosopher will inevitably eat when both chopsticks are available.
-SPEC AG((!eating & leftfree & rightfree) -> AF eating)
--- Everyone who is hungry will ultimately have a chance to eat.
-SPEC AG (hungry -> AF (p0.eating | p1.eating | p2.eating | p3.eating | p4.eating))
+SPEC AG(state = hungry -> AF state = eating)
