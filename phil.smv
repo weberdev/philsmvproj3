@@ -74,6 +74,8 @@ ASSIGN
   esac;
 
 -- add fairness constraints here
+FAIRNESS state = eating
+
 -- add specifications here 
 
 -- safety:
