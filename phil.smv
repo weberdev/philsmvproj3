@@ -100,5 +100,5 @@ SPEC AG ((state = eating) -> (gotleft & gotright))
   -- liveness:
   -- A hungry philosopher will inevitably eat.
 SPEC AG(state = hungry -> AF state = eating)
-  -- Assert no deadlock
-SPEC AG !((state = hungry) & gotleft & !gotright) -> AF((state = hungry) & gotleft & !gotright)
+  -- Assert no deadlock where one a philosopher indefinitely waits to get the right chopstick
+SPEC !EF AG (state = hungry & gotleft & !gotright)
