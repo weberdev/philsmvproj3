@@ -30,12 +30,11 @@ ASSIGN
   init(chopsticks[3]) := nobody;
   init(chopsticks[4]) := nobody;
 
-  -- Probably not necessary but set the inital pilisopher to philosopher 0
-  init(turn[1]) := 0;
-  init(turn[2]) := 1;
-  init(turn[3]) := 2;
-  init(turn[4]) := 3;
-  init(turn[0]) := 4;
+  init(turn[0]) := 0;
+  init(turn[1]) := 1;
+  init(turn[2]) := 2;
+  init(turn[3]) := 3;
+  init(turn[4]) := 4;
 
 SPEC AG !(p0.state = eating &  p1.state = eating)
 SPEC AG !(p1.state = eating &  p2.state = eating)
@@ -56,7 +55,8 @@ DEFINE
   leftfree := (left=nobody);
   rightfree := (right=nobody);
   bothfree := (leftfree & rightfree);
-
+  previousPhilosopher := ((i - 1) + 5) mod 5;
+  nextPhilosopher := (i + 1) mod 5;
 ASSIGN
   init(state) := thinking;
 
@@ -89,18 +89,14 @@ ASSIGN
 
   next(lturn) := case
 		  -- rather than adding an if for every time it could be 4
-		  (lturn=i) & (state=thinking) & (lturn=0): 4;
-		  (lturn=i) & (state=thinking) : i - 1;
-		  (lturn=i) & (state=done) & leftfree & (lturn=0): 4;
-		  (lturn=i) & (state=done) & leftfree : i - 1;
+		  (lturn=i) & (state=thinking) : previousPhilosopher;
+		  (lturn=i) & (state=done) & leftfree : previousPhilosopher;
 		  TRUE : lturn;
 		esac;
   next(rturn) := case
 		  -- rather than adding an if for every time it could be 4
-		  (rturn=i) & (state=thinking) & (rturn=4) : 0;
-		  (rturn=i) & (state=thinking) : i + 1;
-		  (rturn=i) & (state=done) & rightfree & (rturn=4): 0;
-		  (rturn=i) & (state=done) & rightfree : i + 1;
+		  (rturn=i) & (state=thinking) : nextPhilosopher;
+		  (rturn=i) & (state=done) & rightfree : nextPhilosopher;
 		  TRUE : rturn;
 		esac;
 

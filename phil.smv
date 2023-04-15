@@ -9,7 +9,7 @@ MODULE main
 
 VAR
   chopsticks : array 0..4 of {nobody,0,1,2,3,4}; -- who holds the chopstick.
-  turn : 0..5; -- Chopstick lock
+  turn : 0..4; -- Chopstick lock
 	       --
 	       -- Philosopher i has chopstick i on left and chopstick
 	       -- (i + 1) mod 5 on right
@@ -52,6 +52,7 @@ DEFINE
   leftfree := (left=nobody);
   rightfree := (right=nobody);
   bothfree := (leftfree & rightfree);
+  nextphilosopher := (i + 1) mod 5;
 
 ASSIGN
   init(state) := thinking;
@@ -85,9 +86,8 @@ ASSIGN
 
   next(turn) := case
 		  -- rather than adding an if for every time it could be 4
-		  (turn=5) : 0;
-		  (turn=i) & (state=thinking) : i + 1;
-		  (turn=i) & (state=done) & bothfree : i + 1;
+		  (turn=i) & (state=thinking) : nextphilosopher;
+		  (turn=i) & (state=done) & bothfree : nextphilosopher;
 		  TRUE : turn;
 		esac;
 
