@@ -1,6 +1,10 @@
 #+title: SMV Model Checking (Project 3)
-#+author: Gavin Jaeger-Freeborn (V00849637), Ajiri Ogedegbe (V00882351), Ian Weber (V0092478)
+#+author: Gavin Jaeger-Freeborn, Ajiri Ogedegbe, Ian Weber
 
+* Contributors
+- Gavin Jaeger-Freeborn (V00849637)
+- Ajiri Ogedegbe (V00882351)
+- Ian Weber (V0092478)
 * Fairness Constraints
 The following fairness constraints are used to ensure that the processes run properly
 #+begin_src nusmv
@@ -8,12 +12,13 @@ FAIRNESS !(state = eating)
 FAIRNESS running
 #+end_src
 
-~FAIRNESS running~ is used to ensure that all processes (philosophers) run. This ensures that the philosophers will check all paths
-possible. In summary, this prevents the starvation of a philosopher.
+- ~FAIRNESS running~ is used to ensure that all processes (philosophers)
+  run. This ensures that the philosophers will check all paths
+  possible. In summary, this prevents the starvation of a philosopher.
 
-~FAIRNESS !(state = eating)~ is a fairness constraint used to ensure
-that no process is stuck in a state of eating for an infinite amount
-of time.
+- ~FAIRNESS !(state = eating)~ is a fairness constraint used to ensure
+  that no process is stuck in a state of eating for an infinite amount
+  of time.
 * Safety Constraints
 The safety constraint described in the documentation as
 #+begin_quote
@@ -60,10 +65,8 @@ infinitely end up being hungry and only holding the left chopstick.
 ** No Adjacent Philosopher eating Constraints
 Since adjacent philosophers share chopsticks a simple way to assert
 that all is well is to ensure that no adjacent philosopher is eating
-at the same time as another.
-
-To do this we can access the state of each philosopher in the `main`
-module and specify this like so:
+at the same time as another. To do this we can access the state of
+each philosopher in the ~main~ module and specify this like so:
 #+begin_src nusmv
 SPEC AG !(p0.state = eating &  p1.state = eating)
 SPEC AG !(p1.state = eating &  p2.state = eating)
@@ -72,11 +75,11 @@ SPEC AG !(p4.state = eating &  p0.state = eating)
 #+end_src
 * Satisfying Constraints
 
-To satisfy these constraints we needed to ensure mutual exclusion. The example shown in the slides on this outlines how processes can be
-given "turns" to access chopsticks. This acts similar to a mutex when programming.
-
-To act as our "mutex" we created a variable called ~turn~ which can be
-any number from 0-5 in our ~main~ module
+To satisfy these constraints we needed to ensure mutual exclusion. The
+example shown in the slides on this outlines how processes can be
+given "turns" to access chopsticks. This acts similar to a mutex when
+programming. To act as our "mutex" we created a variable called ~turn~
+which can be any number from 0-5 in our ~main~ module
 
 #+begin_src nusmv
   turn : 0..4; -- Chopstick lock
@@ -84,10 +87,9 @@ any number from 0-5 in our ~main~ module
 
 The reason for making the lock a number from 0-4 is that the number
 represents the philosopher whose turn it is to pick up chopsticks. aka
-0 for philosopher 0 ...  4 for philosopher 4.
-
-This turn variable is then passed to the philosopher module during the
-creation of each process
+0 for philosopher 0 ... 4 for philosopher 4. This turn variable is
+then passed to the philosopher module during the creation of each
+process
 
 #+begin_src nusmv
   p0 : process philosopher(0,chopsticks[0],chopsticks[1], turn);
@@ -107,9 +109,8 @@ To match the process expression we need to change the module to
 
 As far as determining if a chopstick can be picked up we add a check
 to see if the ~turn~ variable is currently set to this philosopher. aka
-~(turn=i)~
-
-In the case of the left chopstick, the case statement now changes to
+~(turn=i)~. In the case of the left chopstick, the case statement now
+changes to:
 
 #+begin_src nusmv
     next(left)  := case
@@ -122,14 +123,9 @@ In the case of the left chopstick, the case statement now changes to
                    esac;
 #+end_src
 
-This way only the philosopher with the mutex is ever allowed to pickup
-a chopstick.
-
-Now when the philosopher is done with the chopsticks they will release
-them as well as the mutex. To release the mutex we need to have a ~next~
-assignment for ~turn~
-
-in this case that would be
+This way only the philosopher with the mutex is ever allowed to pickup a chopstick. Now when the philosopher is done with the chopsticks they
+will release them as well as the mutex. To release the mutex we need
+to have a ~next~ assignment for ~turn~. In this case that would be:
 
 #+begin_src nusmv
     next(turn) := case
@@ -142,12 +138,11 @@ in this case that would be
 
 Where ~nextphilosopher~ is defined as ~nextphilosopher := (i + 1) mod 5;~
 this means that the mutex will always be passed to the next
-philosopher at the table. The ~mod 5~ is simply used to cycle back to philosopher 0.
-
-This ensures mutual exclusivity since the mutex is only passed to
-another philosopher by the philosopher owning the mutex and no other.
-
-Finally, running this satisfies all the above constraints as seen in this output
+philosopher at the table. The ~mod 5~ is simply used to cycle back to
+philosopher 0. This ensures mutual exclusivity since the mutex is only
+passed to another philosopher by the philosopher owning the mutex and
+no other. Finally, running this satisfies all the above constraints as
+seen in this output
 
 #+begin_src nusmv
 -- specification AG (state = eating -> (gotleft & gotright)) IN p0 is true
@@ -174,10 +169,9 @@ Finally, running this satisfies all the above constraints as seen in this output
 * Extended task
 
 To allow for concurrency we need to move from only having a single
-global mutex to a single mutex per chopstick
-
-to do this we simply need to change the turn declaration from a single
-integer to an array of integers like so:
+global mutex to a single mutex per chopstick. To do this we simply
+need to change the turn declaration from a single integer to an array
+of integers like so:
 
 #+begin_src nusmv
   turn : array 0..4 of  0..4; -- Chopstick locks
@@ -250,11 +244,8 @@ where ~nextPhilosopher~ and ~previousPhilosopher~ are defined as
 #+end_src
 
 Once again the ~mod 5~ is simply used to cycle back to 0 from 4 or to 4
-from 0.
-
-This ensures mutual exclusion just like before since these mutexes are
-only modified by the philosopher currently holding them.
-
+from 0. This ensures mutual exclusion just like before since these
+mutexes are only modified by the philosopher currently holding them.
 This satisfies all of the previously mentioned constraints as seen by
 the following output
 
