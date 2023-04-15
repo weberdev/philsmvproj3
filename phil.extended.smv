@@ -9,16 +9,16 @@ MODULE main
 
 VAR
   chopsticks : array 0..4 of {nobody,0,1,2,3,4}; -- who holds the chopstick.
-  turn : 0..4; -- Chopstick lock
+  turn : array 0..4 of  0..4; -- Chopstick locks
 	       --
 	       -- Philosopher i has chopstick i on left and chopstick
 	       -- (i + 1) mod 5 on right
 	       --
-  p0 : process philosopher(0,chopsticks[0],chopsticks[1], turn);
-  p1 : process philosopher(1,chopsticks[1],chopsticks[2], turn);
-  p2 : process philosopher(2,chopsticks[2],chopsticks[3], turn);
-  p3 : process philosopher(3,chopsticks[3],chopsticks[4], turn);
-  p4 : process philosopher(4,chopsticks[4],chopsticks[0], turn);
+  p0 : process philosopher(0,chopsticks[0],chopsticks[1], turn[0], turn[1]);
+  p1 : process philosopher(1,chopsticks[1],chopsticks[2], turn[1], turn[2]);
+  p2 : process philosopher(2,chopsticks[2],chopsticks[3], turn[2], turn[3]);
+  p3 : process philosopher(3,chopsticks[3],chopsticks[4], turn[3], turn[4]);
+  p4 : process philosopher(4,chopsticks[4],chopsticks[0], turn[4], turn[0]);
 
 ASSIGN
   --
@@ -30,15 +30,18 @@ ASSIGN
   init(chopsticks[3]) := nobody;
   init(chopsticks[4]) := nobody;
 
-  -- Probably not necessary but set the inital pilisopher to philosopher 0
-  init(turn) := 0;
+  init(turn[0]) := 0;
+  init(turn[1]) := 1;
+  init(turn[2]) := 2;
+  init(turn[3]) := 3;
+  init(turn[4]) := 4;
 
 SPEC AG !(p0.state = eating &  p1.state = eating)
 SPEC AG !(p1.state = eating &  p2.state = eating)
 SPEC AG !(p2.state = eating &  p3.state = eating)
 SPEC AG !(p4.state = eating &  p0.state = eating)
 
-MODULE philosopher(i,left,right,turn)
+MODULE philosopher(i,left,right,lturn, rturn)
 
 VAR
   state : {thinking, hungry, eating, done};
@@ -52,8 +55,8 @@ DEFINE
   leftfree := (left=nobody);
   rightfree := (right=nobody);
   bothfree := (leftfree & rightfree);
-  nextphilosopher := (i + 1) mod 5;
-
+  previousPhilosopher := ((i - 1) + 5) mod 5;
+  nextPhilosopher := (i + 1) mod 5;
 ASSIGN
   init(state) := thinking;
 
@@ -62,7 +65,7 @@ ASSIGN
 					    --
 					    -- if hungry and left chopstick if free, take it
 					    --
-		   (state=hungry) & leftfree & (turn=i) : i;
+		   (state=hungry) & leftfree & (lturn=i) : i;
 		   TRUE : left;
 		 esac;
 
@@ -71,7 +74,7 @@ ASSIGN
 					    --
 					    -- if hungry and have left chopstick and right is free, take it
 					    --
-		   (state=hungry) & gotleft & rightfree & (turn=i) : i;
+		   (state=hungry) & gotleft & rightfree & (rturn=i) : i;
 		   TRUE : right;
 		 esac;
 
@@ -84,11 +87,17 @@ ASSIGN
 		   TRUE : state;
 		 esac;
 
-  next(turn) := case
+  next(lturn) := case
 		  -- rather than adding an if for every time it could be 4
-		  (turn=i) & (state=thinking) : nextphilosopher;
-		  (turn=i) & (state=done) & bothfree : nextphilosopher;
-		  TRUE : turn;
+		  (lturn=i) & (state=thinking) : previousPhilosopher;
+		  (lturn=i) & (state=done) & leftfree : previousPhilosopher;
+		  TRUE : lturn;
+		esac;
+  next(rturn) := case
+		  -- rather than adding an if for every time it could be 4
+		  (rturn=i) & (state=thinking) : nextPhilosopher;
+		  (rturn=i) & (state=done) & rightfree : nextPhilosopher;
+		  TRUE : rturn;
 		esac;
 
 -- add fairness constraints here
@@ -97,16 +106,16 @@ FAIRNESS running
 
 -- add specifications here
 
--- safety:
+  -- safety:
   -- Philosophers cannot eat without having chopsticks, we assume table manners
 SPEC AG ((state = eating) -> (gotleft & gotright))
 
 
--- liveness:
+  -- liveness:
   -- A hungry philosopher will inevitably eat.
 SPEC AG(state = hungry -> AF state = eating)
 
--- additional spec:
+  -- additional constraints:
   -- Assert no deadlock where one a philosopher indefinitely waits to
   -- get the right chopstick
 SPEC !EF AG (state = hungry & gotleft & !gotright)
