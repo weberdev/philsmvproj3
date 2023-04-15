@@ -33,6 +33,11 @@ ASSIGN
   -- Probably not necessary but set the inital pilisopher to philosopher 0
   init(turn) := 0;
 
+SPEC AG !(p0.state = eating &  p1.state = eating)
+SPEC AG !(p1.state = eating &  p2.state = eating)
+SPEC AG !(p2.state = eating &  p3.state = eating)
+SPEC AG !(p4.state = eating &  p0.state = eating)
+
 MODULE philosopher(i,left,right,turn)
 
 VAR

@@ -37,6 +37,11 @@ ASSIGN
   init(turn[4]) := 3;
   init(turn[0]) := 4;
 
+SPEC AG !(p0.state = eating &  p1.state = eating)
+SPEC AG !(p1.state = eating &  p2.state = eating)
+SPEC AG !(p2.state = eating &  p3.state = eating)
+SPEC AG !(p4.state = eating &  p0.state = eating)
+
 MODULE philosopher(i,left,right,lturn, rturn)
 
 VAR
