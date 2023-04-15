@@ -1,0 +1,281 @@
+#+title: SMV Model Checking (Project 3)
+#+author: Gavin Jaeger-Freeborn (V00849637), Ajiri Ogedegbe (V00882351), Ian Weber (V0092478)
+
+* Fairness Constraints
+The following fairness constraints are used to ensure that the processes run properly
+#+begin_src nusmv
+FAIRNESS !(state = eating)
+FAIRNESS running
+#+end_src
+
+~FAIRNESS running~ is used to ensure that all processes (philosophers) run. This ensures that the philosophers will check all paths
+possible. In summary, this prevents the starvation of a philosopher.
+
+~FAIRNESS !(state = eating)~ is a fairness constraint used to ensure
+that no process is stuck in a state of eating for an infinite amount
+of time.
+* Safety Constraints
+The safety constraint described in the documentation as
+#+begin_quote
+The safety property should assert that whenever a philosopher is
+eating, that philosopher must be holding the corresponding left and
+right chopstick.
+#+end_quote
+
+We used the SPEC of
+#+begin_src nusmv
+  SPEC AG ((state = eating) -> (gotleft & gotright))
+#+end_src
+
+This way we know that if a philosopher is eating ~gotleft~ and ~gotright~
+must both be satisfied meaning that this philosopher will have both
+the right and left chopsticks.
+* Liveness constraint
+The liveness constraint described in the documentation as
+
+#+begin_quote
+The liveness property should assert that whenever philosopher is
+hungry, that philosopher will always eventually eat.
+#+end_quote
+
+To satisfy this we used the following SPEC
+#+begin_src nusmv
+SPEC AG(state = hungry -> AF state = eating)
+#+end_src
+
+This ensures that as described above whenever a philosopher has the
+state of hungry no matter the path there is some future state where
+they will be eating.
+* Additional constraints
+** Per Philosopher Deadlock Constraint
+To assert that no deadlock occurs where a philosopher is hungry but
+never gets the right chopstick the following SPEC was added
+
+#+begin_src nusmv
+  SPEC !EF AG (state = hungry & gotleft & !gotright)
+#+end_src
+
+This ensures that there exists no state where a philosopher can
+infinitely end up being hungry and only holding the left chopstick.
+** No Adjacent Philosopher eating Constraints
+Since adjacent philosophers share chopsticks a simple way to assert
+that all is well is to ensure that no adjacent philosopher is eating
+at the same time as another.
+
+To do this we can access the state of each philosopher in the `main`
+module and specify this like so:
+#+begin_src nusmv
+SPEC AG !(p0.state = eating &  p1.state = eating)
+SPEC AG !(p1.state = eating &  p2.state = eating)
+SPEC AG !(p2.state = eating &  p3.state = eating)
+SPEC AG !(p4.state = eating &  p0.state = eating)
+#+end_src
+* Satisfying Constraints
+
+To satisfy these constraints we needed to ensure mutual exclusion. The example shown in the slides on this outlines how processes can be
+given "turns" to access chopsticks. This acts similar to a mutex when programming.
+
+To act as our "mutex" we created a variable called ~turn~ which can be
+any number from 0-5 in our ~main~ module
+
+#+begin_src nusmv
+  turn : 0..4; -- Chopstick lock
+#+end_src
+
+The reason for making the lock a number from 0-4 is that the number
+represents the philosopher whose turn it is to pick up chopsticks. aka
+0 for philosopher 0 ...  4 for philosopher 4.
+
+This turn variable is then passed to the philosopher module during the
+creation of each process
+
+#+begin_src nusmv
+  p0 : process philosopher(0,chopsticks[0],chopsticks[1], turn);
+  ...
+#+end_src
+
+We then initialize this mutex to be given to philosopher 0
+
+#+begin_src nusmv
+    init(turn) := 0;
+#+end_src
+
+To match the process expression we need to change the module to
+#+begin_src nusmv
+  MODULE philosopher(i,left,right,turn)
+#+end_src
+
+As far as determining if a chopstick can be picked up we add a check
+to see if the ~turn~ variable is currently set to this philosopher. aka
+~(turn=i)~
+
+In the case of the left chopstick, the case statement now changes to
+
+#+begin_src nusmv
+    next(left)  := case
+                     (state = done) : nobody; -- drop chopstick
+                                              --
+                                              -- if hungry and left chopstick if free, take it
+                                              --
+                     (state=hungry) & leftfree & (turn=i) : i;
+                     TRUE : left;
+                   esac;
+#+end_src
+
+This way only the philosopher with the mutex is ever allowed to pickup
+a chopstick.
+
+Now when the philosopher is done with the chopsticks they will release
+them as well as the mutex. To release the mutex we need to have a ~next~
+assignment for ~turn~
+
+in this case that would be
+
+#+begin_src nusmv
+    next(turn) := case
+		  -- rather than adding an if for every time it could be 4
+		  (turn=i) & (state=thinking) : nextphilosopher;
+		  (turn=i) & (state=done) & bothfree : nextphilosopher;
+		  TRUE : turn;
+		esac;
+#+end_src
+
+Where ~nextphilosopher~ is defined as ~nextphilosopher := (i + 1) mod 5;~
+this means that the mutex will always be passed to the next
+philosopher at the table. The ~mod 5~ is simply used to cycle back to philosopher 0.
+
+This ensures mutual exclusivity since the mutex is only passed to
+another philosopher by the philosopher owning the mutex and no other.
+
+Finally, running this satisfies all the above constraints as seen in this output
+
+#+begin_src nusmv
+-- specification AG (state = eating -> (gotleft & gotright)) IN p0 is true
+-- specification AG (state = hungry -> AF state = eating) IN p0 is true
+-- specification !(EF (AG ((state = hungry & gotleft) & !gotright))) IN p0 is true
+-- specification AG (state = eating -> (gotleft & gotright)) IN p1 is true
+-- specification AG (state = hungry -> AF state = eating) IN p1 is true
+-- specification !(EF (AG ((state = hungry & gotleft) & !gotright))) IN p1 is true
+-- specification AG (state = eating -> (gotleft & gotright)) IN p2 is true
+-- specification AG (state = hungry -> AF state = eating) IN p2 is true
+-- specification !(EF (AG ((state = hungry & gotleft) & !gotright))) IN p2 is true
+-- specification AG (state = eating -> (gotleft & gotright)) IN p3 is true
+-- specification AG (state = hungry -> AF state = eating) IN p3 is true
+-- specification !(EF (AG ((state = hungry & gotleft) & !gotright))) IN p3 is true
+-- specification AG (state = eating -> (gotleft & gotright)) IN p4 is true
+-- specification AG (state = hungry -> AF state = eating) IN p4 is true
+-- specification !(EF (AG ((state = hungry & gotleft) & !gotright))) IN p4 is true
+-- specification AG !(p0.state = eating & p1.state = eating)  is true
+-- specification AG !(p1.state = eating & p2.state = eating)  is true
+-- specification AG !(p2.state = eating & p3.state = eating)  is true
+-- specification AG !(p4.state = eating & p0.state = eating)  is true
+#+end_src
+
+* Extended task
+
+To allow for concurrency we need to move from only having a single
+global mutex to a single mutex per chopstick
+
+to do this we simply need to change the turn declaration from a single
+integer to an array of integers like so:
+
+#+begin_src nusmv
+  turn : array 0..4 of  0..4; -- Chopstick locks
+#+end_src
+
+As well as passing these locks to the philosopher 2 at a time e.g.
+
+#+begin_src nusmv
+    p0 : process philosopher(0,chopsticks[0],chopsticks[1], turn[0], turn[1]);
+#+end_src
+
+Each chopstick's turn is given to a default philosopher
+
+#+begin_src nusmv
+  init(turn[0]) := 0;
+  init(turn[1]) := 1;
+  init(turn[2]) := 2;
+  init(turn[3]) := 3;
+  init(turn[4]) := 4;
+#+end_src
+
+To match the new arguments being passed to the philosopher module its declaration was changed to.
+
+#+begin_src nusmv
+  MODULE philosopher(i,left,right,lturn, rturn)
+#+end_src
+
+where ~lturn~ indicates if it's this philosopher's turn for the left
+chopstick and ~rturn~ indicating if it's this philosopher's turn for the
+right chopstick.
+
+
+the only difference needed for picking up the left and right chopstick is changing ~turn~ to ~lturn~ and ~rturn~ respectively like so:
+
+#+begin_src nusmv
+    next(left)  := case
+		   (state = done) : nobody; -- drop chopstick
+					    --
+					    -- if hungry and left chopstick if free, take it
+					    --
+		   (state=hungry) & leftfree & (lturn=i) : i;
+		   TRUE : left;
+		 esac;
+#+end_src
+
+For when to release the mutex the same approach as above can be used
+where we cycle but instead of cycling through all of the philosophers
+we only need to pass the left chopstick to the previous philosopher
+and the right chopstick to the next philosopher.
+
+#+begin_src nusmv
+    next(lturn) := case
+		  -- rather than adding an if for every time it could be 4
+		  (lturn=i) & (state=thinking) : previousPhilosopher;
+		  (lturn=i) & (state=done) & leftfree : previousPhilosopher;
+		  TRUE : lturn;
+		esac;
+  next(rturn) := case
+		  -- rather than adding an if for every time it could be 4
+		  (rturn=i) & (state=thinking) : nextPhilosopher;
+		  (rturn=i) & (state=done) & rightfree : nextPhilosopher;
+		  TRUE : rturn;
+		esac;
+#+end_src
+
+where ~nextPhilosopher~ and ~previousPhilosopher~ are defined as
+#+begin_src nusmv
+  previousPhilosopher := ((i - 1) + 5) mod 5;
+  nextPhilosopher := (i + 1) mod 5;
+#+end_src
+
+Once again the ~mod 5~ is simply used to cycle back to 0 from 4 or to 4
+from 0.
+
+This ensures mutual exclusion just like before since these mutexes are
+only modified by the philosopher currently holding them.
+
+This satisfies all of the previously mentioned constraints as seen by
+the following output
+
+#+begin_src nusmv
+    -- specification AG (state = eating -> (gotleft & gotright)) IN p0 is true
+    -- specification AG (state = hungry -> AF state = eating) IN p0 is true
+    -- specification !(EF (AG ((state = hungry & gotleft) & !gotright))) IN p0 is true
+    -- specification AG (state = eating -> (gotleft & gotright)) IN p1 is true
+    -- specification AG (state = hungry -> AF state = eating) IN p1 is true
+    -- specification !(EF (AG ((state = hungry & gotleft) & !gotright))) IN p1 is true
+    -- specification AG (state = eating -> (gotleft & gotright)) IN p2 is true
+    -- specification AG (state = hungry -> AF state = eating) IN p2 is true
+    -- specification !(EF (AG ((state = hungry & gotleft) & !gotright))) IN p2 is true
+    -- specification AG (state = eating -> (gotleft & gotright)) IN p3 is true
+    -- specification AG (state = hungry -> AF state = eating) IN p3 is true
+    -- specification !(EF (AG ((state = hungry & gotleft) & !gotright))) IN p3 is true
+    -- specification AG (state = eating -> (gotleft & gotright)) IN p4 is true
+    -- specification AG (state = hungry -> AF state = eating) IN p4 is true
+    -- specification !(EF (AG ((state = hungry & gotleft) & !gotright))) IN p4 is true
+    -- specification AG !(p0.state = eating & p1.state = eating)  is true
+    -- specification AG !(p1.state = eating & p2.state = eating)  is true
+    -- specification AG !(p2.state = eating & p3.state = eating)  is true
+    -- specification AG !(p4.state = eating & p0.state = eating)  is true
+#+end_src
