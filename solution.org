@@ -144,6 +144,10 @@ passed to another philosopher by the philosopher owning the mutex and
 no other. Finally, running this satisfies all the above constraints as
 seen in this output
 
+#+begin_src bash
+  NuSMV  phil.smv
+#+end_src
+
 #+begin_src nusmv
 -- specification AG (state = eating -> (gotleft & gotright)) IN p0 is true
 -- specification AG (state = hungry -> AF state = eating) IN p0 is true
@@ -247,7 +251,14 @@ Once again the ~mod 5~ is simply used to cycle back to 0 from 4 or to 4
 from 0. This ensures mutual exclusion just like before since these
 mutexes are only modified by the philosopher currently holding them.
 This satisfies all of the previously mentioned constraints as seen by
-the following output
+the following output:
+
+Running
+
+#+begin_src bash
+  NuSMV  phil.extended.smv
+#+end_src
+
 
 #+begin_src nusmv
     -- specification AG (state = eating -> (gotleft & gotright)) IN p0 is true
